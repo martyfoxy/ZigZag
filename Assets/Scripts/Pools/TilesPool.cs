@@ -22,11 +22,13 @@ namespace Assets.Scripts.Pools
         /// Получить скрытый тайл или создать новый
         /// </summary>
         /// <param name="pos">Позиция тайла</param>
-        public void AddTile(Vector3 pos)
+        public Tile AddTile(Vector3 pos)
         {
             var tile = _tileFactory.Create(pos);
 
             _tiles.Add(tile);
+
+            return tile;
         }
 
         /// <summary>
@@ -39,6 +41,20 @@ namespace Assets.Scripts.Pools
                 var tile = _tiles[0];
                 tile.Dispose();
                 _tiles.Remove(tile);
+            }
+        }
+
+        /// <summary>
+        /// Удалить тайл из пула
+        /// </summary>
+        /// <param name="tile">Тайл</param>
+        public void RemoveTile(Tile tile)
+        {
+            var index = _tiles.FindIndex(x => x == tile);
+            if(index != -1)
+            {
+                _tiles[index].Dispose();
+                _tiles.RemoveAt(index);
             }
         }
     }
