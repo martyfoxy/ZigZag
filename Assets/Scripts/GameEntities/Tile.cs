@@ -11,13 +11,14 @@ namespace Assets.Scripts.GameEntities
     /// </summary>
     public class Tile : MonoBehaviour, IPoolable<Vector3, IMemoryPool>, IDisposable
     {
-        IMemoryPool _pool;
+        private IMemoryPool _pool;
 
         #region IDisposable Implementation
+        /// <summary>
+        /// Метод для возвращения тайла в пул
+        /// </summary>
         public void Dispose()
         {
-            Debug.Log("Tile Dispose");
-
             _pool.Despawn(this);
         }
         #endregion

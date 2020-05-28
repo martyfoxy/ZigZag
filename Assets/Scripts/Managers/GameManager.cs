@@ -4,6 +4,7 @@ using Assets.Scripts.Interfaces;
 using Assets.Scripts.Models.Enums;
 using Assets.Scripts.Pools;
 using Assets.Scripts.ScriptableObjects;
+using Assets.Scripts.Signals;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,136 +15,99 @@ namespace Assets.Scripts.Managers
     /// <summary>
     /// Игровой менеджер
     /// </summary>
-    public class GameManager : IGameManager, IInitializable
+    public class GameManager : IGameManager, IInitializable, ITickable
     {
-        readonly BlockFactory _blockFactory;
+        /// <summary>
+        /// Состояние игры
+        /// </summary>
+        public GameStateEnum GameState {
+            get
+            {
+                return _gameState;
+            }
+            private set
+            {
+                _gameState = value;
+                _signalBus.Fire(new GameStateChangedSignal() { NewState = value });
+            }
+        }
+
+        #region DI
         readonly AsyncProcessor _asyncProcessor;
         readonly GameSettings _gameSettings;
+        readonly LevelManager _levelManager;
+        private readonly PlayerPool _playerPool;
+        private readonly SignalBus _signalBus;
+        #endregion
 
-        private int _pathWidth;
+        //Локальные переменные
+        private GameStateEnum _gameState;
 
-        public GameManager(BlockFactory blockFactory, GameSettings gameSettings, AsyncProcessor asyncProcessor)
+        public GameManager(GameSettings gameSettings, AsyncProcessor asyncProcessor, LevelManager levelManager, PlayerPool playerPool, SignalBus signalBus)
         {
-            _blockFactory = blockFactory;
             _asyncProcessor = asyncProcessor;
             _gameSettings = gameSettings;
+            _levelManager = levelManager;
+            _playerPool = playerPool;
+            _signalBus = signalBus;
         }
 
         public void Initialize()
         {
             Debug.Log(">>> Game Manager Init");
 
-            SetDifficulty(_gameSettings.Difficulty);
-
-            //_asyncProcessor.StartCoroutine(asdf());
+            _gameState = GameStateEnum.Startup;
         }
 
-        /// <summary>
-        /// Установить ширину дорожек в зависимости от сложности
-        /// </summary>
-        /// <param name="difficulty">Сложность</param>
-        public void SetDifficulty(DifficultyEnum difficulty)
+        public void Tick()
         {
-            switch (difficulty)
+            if (Input.GetMouseButtonDown(0))
             {
-                case DifficultyEnum.Easy:
-                    _pathWidth = 3;
-                    break;
-                case DifficultyEnum.Medium:
-                    _pathWidth = 2;
-                    break;
-                case DifficultyEnum.Hard:
-                    _pathWidth = 1;
-                    break;
+                switch(GameState)
+                {
+                    case GameStateEnum.Startup:
+                        {
+                            StartGame();
+                            break;
+                        }
+                    case GameStateEnum.GameOver:
+                        {
+                            RestartGame();
+                            break;
+                        }
+                }
             }
+                
         }
 
-        private void GenerateLevel()
+        #region IGameManager implementation
+        public void StartGame()
         {
-            //Создаем платформу
-            var platform = CreateSpawnPlatform();
-            Paint(platform);
+            _levelManager.GenerateLevel(10);
 
-            //Запоминаем последний тайл блока, где нужно создавать следующий блок
-            Tile lastTile = platform[platform.Count - 1];
+            _playerPool.SpawnPlayer();
 
-            for (int i = 0; i < 100; i++)
-            {
-                //Четное - вперед, нечетное - вправо
-                bool forward = i % 2 == 0;
-
-                var startPos = forward ? lastTile.transform.position + Vector3.forward : lastTile.transform.position + Vector3.right;
-
-                var block = SpawnRandomBlock(startPos, forward);
-                Paint(block);
-
-                lastTile = block[block.Count - 1];
-            }
+            GameState = GameStateEnum.Playing;
         }
 
-        IEnumerator asdf()
+        public void RestartGame()
         {
-            //Создаем платформу
-            var platform = CreateSpawnPlatform();
-            Paint(platform);
+            _levelManager.Reset();
+            _levelManager.GenerateLevel(10);
 
-            //Запоминаем последний тайл блока, где нужно создавать следующий блок
-            Tile lastTile = platform[platform.Count - 1];
+            _playerPool.SpawnPlayer();
 
-            for (int i = 0; i < 100; i++)
-            {
-                //Четное - вперед, нечетное - вправо
-                bool forward = i % 2 == 0;
-
-                var startPos = forward ? lastTile.transform.position + Vector3.forward : lastTile.transform.position + Vector3.right;
-
-                var block = SpawnRandomBlock(startPos, forward);
-                //Paint(block);
-                //Удаляем через 3 секунды
-                //_asyncProcessor.StartCoroutine(RemoveBlockAfterSeconds(block, 3));
-
-                lastTile = block[block.Count - 1];
-
-                yield return new WaitForSeconds(0.5f);
-            }
+            GameState = GameStateEnum.Playing;
         }
 
-        IEnumerator RemoveBlockAfterSeconds(List<Tile> block, float time)
+        public void OnPlayerDiedSignal(PlayerDiedSignal signal)
         {
-            yield return new WaitForSeconds(time);
+            _playerPool.DespawnPlayer();
 
-            _blockFactory.RemoveBlock(block);
+            GameState = GameStateEnum.GameOver;
         }
-
-        
-        public void Paint(List<Tile> block)
-        {
-            block[0].GetComponent<MeshRenderer>().material.color = Color.green;
-            block[block.Count - 1].GetComponent<MeshRenderer>().material.color = Color.red;
-        }
+        #endregion
 
 
-        /// <summary>
-        /// Создать случайную дорожку с заданной позиции и направлением
-        /// </summary>
-        /// <param name="pos">Позиция создания</param>
-        /// <param name="isForward">Направлена вперед?</param>
-        /// <returns></returns>
-        public List<Tile> SpawnRandomBlock(Vector3 pos, bool isForward)
-        {
-            if(isForward)
-                return _blockFactory.CreateBlock(pos, Random.Range(1, 10), _pathWidth, DirectionEnum.Forward);
-            else
-                return _blockFactory.CreateBlock(pos, Random.Range(1, 10), _pathWidth, DirectionEnum.Right);
-        }
-
-        /// <summary>
-        /// Создать платформу 3х3 из тайлов
-        /// </summary>
-        /// <returns>Тайлы</returns>
-        public List<Tile> CreateSpawnPlatform()
-        {
-            return _blockFactory.CreateBlock(new Vector3(), 3, 3);
-        }
     }
 }

@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 724fb25f56d3f224db6d3326bd28169e, type: 3}
   m_Name: GameSettings
   m_EditorClassIdentifier: 
-  _difficulty: 0
+  _difficulty: 2
   _playerSpeed: 10
+  _maximumTilesPerPathCount: 5
   _crystalSpawnParameter: 0
