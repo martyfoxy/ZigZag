@@ -1,3 +1,3 @@
 # ZigZag
 
-Тестовое задание в компанию Craft Games. Реализация игры на подобие ZigZag
+Craft Games interview test assignment. Implementation of ZigZag-like game
